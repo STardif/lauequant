@@ -1,0 +1,20 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install numpy scipy pandas matplotlib xraylib pytest
+          pip install --no-deps lauetools
+      - name: pyXRT (beamline model)
+        run: git clone --depth 1 https://github.com/STardif/pyXRT.git ../pyXRT
+      - name: Tests
+        env:
+          PYXRT_PATH: ${{ github.workspace }}/../pyXRT
+        run: pytest -q tests

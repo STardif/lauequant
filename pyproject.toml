@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lauequant"
+version = "0.1.0"
+description = "Quantitative forward model of Laue microdiffraction on BM32 (spectrum, geometry, scattering, photon-counting detector)"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "stardif", email = "stardif@esrf.fr"},
+    {name = "Claude (Anthropic)", email = "noreply@anthropic.com"},
+]
+dependencies = ["numpy", "scipy", "pandas", "matplotlib", "xraylib"]
+
+[project.optional-dependencies]
+lauetools = ["lauetools"]
+test = ["pytest"]
+
+[tool.setuptools]
+packages = ["lauequant"]
