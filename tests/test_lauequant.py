@@ -134,3 +134,31 @@ def test_read_lauetools_det(tmp_path):
     calib, pix, shape, UB = read_lauetools_det(p)
     assert calib == [100.134, 1086.96, 1179.4, 0.395, 0.399] and pix == 0.075 and shape == (2162, 2068)
     assert UB.shape == (3, 3)
+
+
+def test_pixel_origin_convention():
+    """LaueTools XMAS convention: calibration coordinate X <-> array column X - 1."""
+    geo = DetectorGeometry(CALIB, 0.075, (2162, 2068))
+    assert geo.pixel_origin == 1
+    assert geo.in_frame(np.array([1.0, 2068.0]), np.array([1.0, 2162.0])).all()
+    assert not geo.in_frame(np.array([0.0]), np.array([10.0]))[0]
+    X, Y = geo.pixel_grid()
+    assert X[0, 0] == 1 and Y[-1, -1] == 2162
+
+
+def test_roi_and_image_indexing():
+    from lauequant.compare import roi_sums
+    img = np.ones((200, 200))
+    img[99, 49] += 1000.0                       # array (row 99, col 49) = calibration (X 50, Y 100)
+    m = img > 0
+    assert roi_sums(img, m, [50.0], [100.0], pixel_origin=1)[0, 0] == pytest.approx(1000.0)
+    e = np.arange(4, 40, 0.05)
+    sp = IncidentSpectrum(e, 6e7 * np.exp(-0.5 * ((e - 18) / 5) ** 2))
+    sim = LaueSimulator(Crystal.germanium(), UB_GE, sp, DetectorGeometry(CALIB))
+    top = sim.spots().iloc[0]
+    key = (top.h0, top.k0, top.l0)
+    roi = sim.spot_counts(key, roi_half=4, rng=0)
+    im = sim.image(spots=[key], rate_effects=False, rng=0)["true_rate"]
+    r, c = np.unravel_index(im.argmax(), im.shape)
+    assert abs(c - (top.X - 1)) <= 1 and abs(r - (top.Y - 1)) <= 1
+    assert roi["col0"] == roi["x0"] - 1 and roi["row0"] == roi["y0"] - 1

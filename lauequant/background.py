@@ -69,7 +69,7 @@ def line_intensity_per_sr(data, gamma_in, gamma_out):
 def fluorescence_background(sim, step: int = 16, min_energy_kev=None, return_lines=False):
     """Expected fluorescence counts/s per pixel on the detector of a LaueSimulator.
 
-    Computed on a grid with ``step`` pixels and bilinearly interpolated (the
+    Returned as a numpy array (array indices).  Computed on a grid with ``step`` pixels and bilinearly interpolated (the
     background is smooth).  Includes the pixel solid angle, air absorption,
     and the detector flat-field response (QE x charge-sharing multiplicity).
     """
@@ -80,8 +80,9 @@ def fluorescence_background(sim, step: int = 16, min_energy_kev=None, return_lin
     xs = np.r_[np.arange(0, nx, step), nx - 1].astype(float)
     ys = np.r_[np.arange(0, ny, step), ny - 1].astype(float)
     X, Y = np.meshgrid(xs, ys)
-    uf, r = geo.directions_from_pixels(X.ravel(), Y.ravel())
-    omega = geo.pixel_solid_angle(X.ravel(), Y.ravel())
+    Xc, Yc = geo.from_index(X.ravel(), Y.ravel())          # array indices -> calibration frame
+    uf, r = geo.directions_from_pixels(Xc, Yc)
+    omega = geo.pixel_solid_angle(Xc, Yc)
     g_in = smp.gamma_in()
     g_out = smp.gamma_out(uf)
     cosi = geo.incidence_cos(uf)

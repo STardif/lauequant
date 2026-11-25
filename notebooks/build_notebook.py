@@ -223,7 +223,8 @@ img = out["counts"]
 fig, ax = plt.subplots(1, 2, figsize=(12, 5.6))
 ax[0].imshow(maximum_filter(img, size=9) + 1, norm=LogNorm(vmin=1e3, vmax=3e5), cmap="cividis")
 ax[0].set(title="Full frame (9x9 max-filtered for display)", xlabel="X (pixel)", ylabel="Y (pixel)")
-x0, y0 = int(spots.X[0]) - 60, int(spots.Y[0]) - 60
+o = geo.pixel_origin                      # array index = calibration coordinate - 1
+x0, y0 = int(round(spots.X[0] - o)) - 60, int(round(spots.Y[0] - o)) - 60
 ax[1].imshow(img[y0:y0 + 120, x0:x0 + 120] + 1, norm=LogNorm(vmin=300, vmax=3e5), cmap="cividis",
              extent=(x0 - .5, x0 + 119.5, y0 + 119.5, y0 - .5))
 ax[1].set(title="Zoom on the strongest spot (raw pixels)", xlabel="X (pixel)")

@@ -12,6 +12,10 @@ Data: `RefGe_GeRefH2_12Nov_17h48_RefGe.h5`, scan 1.1 (0.1 s, single image `scan0
 calibration and UB from `calib.det` (LaueTools, Ge, 98 indexed spots).  The image, slits (S1, S3), mirror angles and
 ring current are read with pyXRT (`bliss_hdf5_reader.BlissScan`, `xrf_beamline.bm32_from_h5`).
 
+Pixel coordinates: X, Y in the `.dat`, `.fit` and `.det` files follow the LaueTools "XMAS" convention (first pixel
+= (1, 1), a legacy of the Fit2D/XMAS era), so the array element is `img[Y - 1, X - 1]`.  `DetectorGeometry.pixel_origin = 1`
+handles this; all lauequant positions are in the calibration frame, ROIs give `col0, row0` for array slicing.
+
 Measured spot intensities: own ROI integration (11 × 11 pixels around the *predicted* position, local background =
 median of a square annulus at 8–12 px), the same box being used for the prediction.  (LaueTools' `Itot` in the `.dat`
 is the single-pixel maximum for spots where the 2D fit did not converge, so it is not used.)
@@ -55,7 +59,8 @@ print(f"{n30} well-measured spots: measured / predicted = {k30:.3f} (median), rm
 fig, ax = plt.subplots(figsize=(7, 7))
 ax.imshow(maximum_filter(img, 5) + 1, norm=LogNorm(vmin=100, vmax=1e5), cmap="cividis"); ax.grid(False)
 on = sp30.pred_counts > 3000
-ax.scatter(sp30.X[on], sp30.Y[on], s=60, facecolors="none", edgecolors="#f47230", lw=0.8, label="predicted, > 3000 counts")
+o = sim30.detector_geometry.pixel_origin        # .dat/.det coordinates: first pixel = (1, 1)
+ax.scatter(sp30.X[on] - o, sp30.Y[on] - o, s=60, facecolors="none", edgecolors="#f47230", lw=0.8, label="predicted, > 3000 counts")
 ax.set(title=f"Scan {SCAN} ({T} s), 5x5 max-filtered", xlabel="X (pixel)", ylabel="Y (pixel)"); ax.legend(loc="lower right")
 """)
 code(r"""
@@ -190,7 +195,7 @@ strong = sp[sp.meas_counts > 5e4].sort_values("meas_counts", ascending=False).he
 rows, ex = [], None
 for r in strong.itertuples():
     p = sim.spot_counts((r.h0, r.k0, r.l0), roi_half=4, rng=0, n_v=11, n_h=31)
-    m = img[p["y0"]:p["y0"] + 9, p["x0"]:p["x0"] + 9] - r.meas_bkg
+    m = img[p["row0"]:p["row0"] + 9, p["col0"]:p["col0"] + 9] - r.meas_bkg
     rows.append(moments(m) + moments(p["roi"]))
     if ex is None:
         ex = (r, m, p["roi"] * T)
@@ -242,7 +247,7 @@ for r in sp[sp.meas_counts > 3e4].itertuples():
         w = p["rays"]["w"]
         d[f"rad_{lbl}"], d[f"tan_{lbl}"] = widths_rt(p["roi"], u)
         d[f"cen_{lbl}"] = np.average(p["rays"]["x"], weights=w) * u[0] + np.average(p["rays"]["y"], weights=w) * u[1]
-    m = img[p["y0"]:p["y0"] + 9, p["x0"]:p["x0"] + 9] - r.meas_bkg
+    m = img[p["row0"]:p["row0"] + 9, p["col0"]:p["col0"] + 9] - r.meas_bkg
     d["rad_meas"], d["tan_meas"] = widths_rt(m, u)
     rows.append(d)
 dw = pd.DataFrame(rows); dw["radial_shift_px"] = dw.cen_depth - dw.cen_none

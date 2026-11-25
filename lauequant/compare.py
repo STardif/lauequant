@@ -48,8 +48,11 @@ def read_scan(master, scan, pyxrt_path: Optional[str] = None, frame: int = 0):
     return img, info
 
 
-def roi_sums(img, mask, x, y, half: int = 5, r_in: int = 8, r_out: int = 12):
+def roi_sums(img, mask, x, y, half: int = 5, r_in: int = 8, r_out: int = 12, pixel_origin: int = 1):
     """Box sum (2 half + 1)^2 around (x, y) minus the median of a square annulus [r_in, r_out].
+
+    x, y are calibration-frame coordinates (LaueTools: first pixel = (1, 1), so the
+    array element is img[y - 1, x - 1] for ``pixel_origin=1``).
 
     Returns (n, 3): net counts, background per pixel, max pixel.  NaN when the
     box touches a module gap / the frame edge.
@@ -59,7 +62,9 @@ def roi_sums(img, mask, x, y, half: int = 5, r_in: int = 8, r_out: int = 12):
     box = (np.abs(xx) <= half) & (np.abs(yy) <= half)
     annulus = np.maximum(np.abs(xx), np.abs(yy)) >= r_in
     out = np.full((len(x), 3), np.nan)
-    for i, (xc, yc) in enumerate(zip(np.round(x).astype(int), np.round(y).astype(int))):
+    cols = np.round(np.asarray(x, float) - pixel_origin).astype(int)
+    rows = np.round(np.asarray(y, float) - pixel_origin).astype(int)
+    for i, (xc, yc) in enumerate(zip(cols, rows)):
         y0, y1, x0, x1 = yc - r_out, yc + r_out + 1, xc - r_out, xc + r_out + 1
         if y0 < 0 or x0 < 0 or y1 > ny or x1 > nx:
             continue
@@ -94,7 +99,7 @@ def compare_spots(sim, img, exposure_s, half: int = 5, mask=None, rng=0, **ray_k
     """Spot table with predicted and measured (ROI-integrated) counts for the exposure."""
     mask = img > 0 if mask is None else mask
     sp = sim.spots()
-    meas = roi_sums(img, mask, sp.X.values, sp.Y.values, half=half)
+    meas = roi_sums(img, mask, sp.X.values, sp.Y.values, half=half, pixel_origin=sim.detector_geometry.pixel_origin)
     sp["meas_counts"], sp["meas_bkg"], sp["meas_max"] = meas.T
     pc = [sim.spot_counts((r.h0, r.k0, r.l0), roi_half=half, rng=rng, **ray_kw) for r in sp.itertuples()]
     sp["pred_counts"] = [p["counts_s"] * exposure_s for p in pc]

@@ -59,6 +59,11 @@ Notebook `02_Ge_EIGER_comparison.ipynb`, module `lauequant.compare` (image and s
   -> spots shifted by ~0.05-0.3 px along 2theta, radial widths +0.03 px (<= 0.2 px). The unexplained broadening is
   larger tangentially (0.78 px) than radially (0.61 px): not a depth effect. The spot-to-spot spread of the
   depth shift (~0.07 px rms) is near the strain resolution -> to include in strain refinement (LaueTools).
+* **Pixel convention:** LaueTools .dat/.fit/.det coordinates use the XMAS convention (first pixel = (1, 1));
+  `DetectorGeometry.pixel_origin = 1` maps them to numpy indices (array = coordinate - 1). Fixing a 1-px slip in the
+  ROI extraction changed the results only marginally (best effective KB angle 3.40-3.45 mrad, k = 0.75-0.77,
+  rms 0.083 dex). Remaining offset: image centroids are 0.37 px towards -X from LaueTools Gaussian-fit positions
+  (Y: 0.02 px) -> centroid vs peak of spots elongated along X, to keep in mind when comparing shapes.
 * Not yet tested: dead time (brightest pixel 1.1e6 cps), threshold dependence, other exposures/positions (scans 2.1-6.1).
 
 ## Development stages

@@ -31,12 +31,20 @@ class DetectorGeometry:
         mm (0.075 for EIGER2).
     shape : (n_rows, n_cols) = (n_y, n_x)
         EIGER2 X CdTe 4M: (2162, 2068), i.e. 162.2 x 155.1 mm2 (Y x X).
+    pixel_origin : int
+        Pixel coordinate of the centre of the first array element.  LaueTools peak
+        search writes positions with the "XMAS" convention (first pixel = (1, 1),
+        ``position_definition=1``), and calibrations refined on those peaks
+        (xcen, ycen) are in the same frame: array index = coordinate - 1.
+        All lauequant coordinates (X, Y) are in this calibration frame; use
+        :meth:`to_index` / :meth:`from_index` to go to numpy array indices.
     """
 
     calib: Sequence[float]
     pixelsize: float = 0.075
     shape: Tuple[int, int] = (2162, 2068)
     label: str = "EIGER2 X CdTe 4M"
+    pixel_origin: int = 1
 
     def __post_init__(self):
         dd, xcen, ycen, xbet, xgam = [float(c) for c in self.calib]
@@ -52,7 +60,7 @@ class DetectorGeometry:
 
     # -- constructors -----------------------------------------------------------
     @classmethod
-    def from_lauetools_det(cls, path, shape=None, **kw):
+    def from_lauetools_det(cls, path, shape=None, **kw):  # pixel_origin=1 (LaueTools default) unless given
         """Read a LaueTools ``.det`` file (first line: dd, xcen, ycen, xbet, xgam, pixelsize, dim1, dim2)."""
         with open(path) as f:
             vals = [float(v) for v in f.readline().replace(",", " ").split()]
@@ -109,9 +117,18 @@ class DetectorGeometry:
         chi = np.arctan(-uf[..., 0] / (uf[..., 2] + 1e-17)) / DEG
         return tth, chi
 
+    def to_index(self, x, y):
+        """Calibration-frame pixel coordinates -> numpy (col, row) indices (float)."""
+        return np.asarray(x, float) - self.pixel_origin, np.asarray(y, float) - self.pixel_origin
+
+    def from_index(self, col, row):
+        """numpy (col, row) indices -> calibration-frame pixel coordinates."""
+        return np.asarray(col, float) + self.pixel_origin, np.asarray(row, float) + self.pixel_origin
+
     def in_frame(self, x, y, margin: float = 0.0):
         ny, nx = self.shape
-        return (x >= -0.5 + margin) & (x < nx - 0.5 - margin) & (y >= -0.5 + margin) & (y < ny - 0.5 - margin)
+        c, r = self.to_index(x, y)
+        return (c >= -0.5 + margin) & (c < nx - 0.5 - margin) & (r >= -0.5 + margin) & (r < ny - 0.5 - margin)
 
     # -- radiometry ----------------------------------------------------------------
     def incidence_cos(self, directions):
@@ -125,8 +142,10 @@ class DetectorGeometry:
         return self.pixelsize ** 2 * np.abs(uf @ self.normal) / r ** 2
 
     def pixel_grid(self, step: int = 1):
+        """Calibration-frame coordinates (X, Y) of the array pixels (every ``step``)."""
         ny, nx = self.shape
-        return np.meshgrid(np.arange(0, nx, step, dtype=float), np.arange(0, ny, step, dtype=float))
+        return np.meshgrid(np.arange(0, nx, step, dtype=float) + self.pixel_origin,
+                           np.arange(0, ny, step, dtype=float) + self.pixel_origin)
 
 
 @dataclass

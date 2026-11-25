@@ -202,7 +202,8 @@ class LaueSimulator:
         """Expected count rate (counts/s) in a ROI around a spot, before count-rate effects.
 
         Returns dict with 'roi' (2 roi_half+1 square, counts/s, lower threshold),
-        'roi2' (upper threshold, if set), 'x0', 'y0' (ROI origin pixel),
+        'roi2' (upper threshold, if set), 'x0', 'y0' (calibration-frame coordinates of the
+        ROI's first pixel), 'col0', 'row0' (the same as numpy array indices: ``img[row0:, col0:]``),
         'photons_s' (photons/s reaching the sensor) and 'counts_s' (sum of roi).
         """
         rays = self.spot_rays(h0k0l0, rng=rng, **ray_kw)
@@ -217,14 +218,17 @@ class LaueSimulator:
         np.add.at(roi, (iy[m], ix[m]), res["c1"][m])
         if roi2 is not None:
             np.add.at(roi2, (iy[m], ix[m]), res["c2"][m])
-        return dict(roi=roi, roi2=roi2, x0=xc - roi_half, y0=yc - roi_half, photons_s=float(rays["w"].sum()),
+        o = self.detector_geometry.pixel_origin
+        return dict(roi=roi, roi2=roi2, x0=xc - roi_half, y0=yc - roi_half, col0=xc - roi_half - o,
+                    row0=yc - roi_half - o, photons_s=float(rays["w"].sum()),
                     counts_s=float(roi.sum()), rays=rays)
 
     # ------------------------------------------------------------------ full image
     def image(self, exposure_s: float = 1.0, spots: Optional[Sequence] = None, max_spots: Optional[int] = None,
               background: Optional[np.ndarray] = None, rate_effects: bool = True, noise: bool = False,
               rng=None, **ray_kw):
-        """Expected (or Poisson-sampled) counts per pixel for an exposure.
+        """Expected (or Poisson-sampled) counts per pixel for an exposure, as a numpy array
+        (array index = calibration coordinate - ``detector_geometry.pixel_origin``).
 
         background : counts/s per pixel (e.g. from :func:`fluorescence_background`).
         rate_effects : apply the non-paralysable dead time to the true count rate
@@ -243,8 +247,9 @@ class LaueSimulator:
             rays = self.spot_rays(s, rng=rng, **ray_kw)
             res = self.detector.respond(rays["x"], rays["y"], rays["E"], rays["w"],
                                         np.c_[rays["dirx"], rays["diry"]], rays["cos"], rng=rng)
-            m = (res["ix"] >= 0) & (res["ix"] < nx) & (res["iy"] >= 0) & (res["iy"] < ny)
-            np.add.at(rate, (res["iy"][m], res["ix"][m]), res["c1"][m])
+            col, row = res["ix"] - geo.pixel_origin, res["iy"] - geo.pixel_origin
+            m = (col >= 0) & (col < nx) & (row >= 0) & (row < ny)
+            np.add.at(rate, (row[m], col[m]), res["c1"][m])
         if background is not None:
             rate = rate + background
         out = dict(true_rate=rate)
